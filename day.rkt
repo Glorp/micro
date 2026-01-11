@@ -15,27 +15,27 @@
            (zero? (remainder y 400)))))
 
 (define days-per-month
-  (vector 31 28 31 30 31 30 31 31 30 31 30 31))
+  (vector 31 31 28 31 30 31 30 31 31 30 31 30 31))
 
 (define (days-in-month y m)
   (if (and (= m 2) (leap-year? y))
       29
-      (vector-ref days-per-month (- m 1))))
+      (vector-ref days-per-month m)))
+
+(define (normalize y m d)
+  (cond [(> m 12) (normalize (+ y 1) (- m 12) d)]
+        [(< m 1) (normalize (- y 1) (+ m 12) d)]
+        [else
+         (define days (days-in-month y m))
+         (cond
+           [(> d days) (normalize y (+ m 1) (- d days))]
+           [(< d 1) (normalize y (- m 1) (+ d (days-in-month y (- m 1))))]
+           [else (day y m d)])]))
 
 (define (add-days dy i)
   (match dy
     [(day y m d)
-     (define days (days-in-month y m))
-     (define nd (+ d i))
-     (cond [(> nd days) (add-days (if (>= m 12)
-                                      (day (+ y 1) 1 1)
-                                      (day y (+ m 1) 1))
-                                  (- nd days 1))]
-           [(< nd 1) (add-days (if (<= m 1)
-                                   (day (- y 1) 12 31)
-                                   (day y (- m 1) (days-in-month y (- m 1))))
-                               nd)]
-           [else (day y m nd)])]))
+     (normalize y m (+ d i))]))
 
 (define (next-day dy)
   (add-days dy 1))
@@ -50,7 +50,15 @@
 (define (today)
   (seconds->day (current-seconds)))
   
-(struct day (y m d) #:transparent)
+(struct day (y m d)
+  #:transparent
+  #:guard
+  (λ (y m d name)
+    (unless (and (exact-positive-integer? y)
+                 (and (exact-positive-integer? m) (> m 0) (<= m 12))
+                 (and (exact-positive-integer? d) (> d 0) (<= d (days-in-month y m))))
+      (error 'day "not a valid day: (~a ~s ~s ~s)" name y m d))
+    (values y m d)))
 
 (define (day->string d)
   (define (pad v n)
