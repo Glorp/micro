@@ -19,17 +19,18 @@
   (define c (sqlite3-connect
              #:database path
              #:mode 'create))
+
+  (query-exec c (string-append "CREATE TABLE IF NOT EXISTS topic(\n"
+                               "  id INTEGER PRIMARY KEY,\n"
+                               "  title TEXT\n"
+                               ")"))
   (query-exec c (string-append "CREATE TABLE IF NOT EXISTS post(\n"
                                "  day TEXT PRIMARY KEY,\n"
                                "  text TEXT,\n"
-                               "  thread TEXT,\n"
-                               "  FOREIGN KEY(thread) REFERENCES post(day)"
+                               "  topic_id INTEGER,\n"
+                               "  FOREIGN KEY(topic_id) REFERENCES topic(id)"
                                ")"))
-  (query-exec c (string-append "CREATE TABLE IF NOT EXISTS thread(\n"
-                               "  day TEXT PRIMARY KEY,\n"
-                               "  title TEXT,\n"
-                               "  FOREIGN KEY(day) REFERENCES post(day)"
-                               ")"))
+  
   (repo c))
 
 (define (close-repo repo)
@@ -46,33 +47,31 @@
 
 (define (create-post repo pst)
   (match pst
-    [(post day text thread)
+    [(post day text topic-id)
      (query-exec (con repo)
-                 "INSERT INTO post (day, text, thread) VALUES ($1, $2, $3)"
+                 "INSERT INTO post (day, text, topic_id) VALUES ($1, $2, $3)"
                  (day->string day)
                  text
-                 (false->sql-null (maybe-day->string thread)))]))
+                 (false->sql-null topic-id))]))
 
 (define (update-post repo pst)
   (match pst
-    [(post day text thread)
-     (query-exec (con repo) "UPDATE post SET text = $1, thread = $2 WHERE day = $3"
+    [(post day text topic-id)
+     (query-exec (con repo) "UPDATE post SET text = $1, topic_id = $2 WHERE day = $3"
                  text
-                 (false->sql-null (maybe-day->string thread))
+                 (false->sql-null topic-id)
                  (day->string day))]))
 
 (define (row->post row)
   (match row
-    [(vector day text thread)
+    [(vector day text topic-id)
      (post (string->day day)
            text
-           (if (sql-null? thread)
-               #f
-               (string->day thread)))]))
+           (sql-null->false topic-id))]))
 
 (define (get-post repo day)
   (define rows (query-rows (con repo)
-                           "SELECT day, text, thread FROM post WHERE day = $1"
+                           "SELECT day, text, topic_id FROM post WHERE day = $1"
                            (day->string day)))
   (match rows
     ['() #f]
@@ -89,7 +88,7 @@
       (match filter
         [(before d) (list (format "day < $~a" n) (day->string d))]
         [(after d) (list (format "day > $~a" n) (day->string d))]
-        [(in-thread d) (list (format "thread = $~a" n) (day->string d))])))
+        [(in-topic d) (list (format "topic_id = $~a" n) d)])))
   (define where
     (if (empty? clauses)
         ""
@@ -98,16 +97,34 @@
   (define rows
     (apply query-rows
            (con repo)
-           (format "SELECT day, text, thread FROM post~a ORDER BY day ~a" where order)
+           (format "SELECT day, text, topic_id FROM post~a ORDER BY day ~a" where order)
            values))
   (map row->post rows))
+
+(define (create-topic repo name)
+  (unless
+      (string? name)
+    (error 'create-topic "name must be string: ~s" name))
+  (define row (query-row (con repo) "INSERT INTO topic (name) VALUES ($1) RETURNING id" name))
+  (topic (vector-ref row 0) name))
+
+(define (update-topic repo tp)
+  (match tp
+    [(topic id name)
+     (query-exec (con repo) "UPDATE topic SET name = $1 WHERE id = $1" name id)]))
+
+(define (row->topic row)
+  (topic (vector-ref row 0) (vector-ref row 1)))
+
+(define (get-topic topic-id)
+  (row->topic (query-row (con repo) "SELECT id, name FROM topic WHERE id = $1" topic-id)))
 
 (module+ test
   (require (except-in rackunit before after))
   (define r (open-repo 'memory))
   (define d1 (day 2026 01 01))
   (define d2 (day 2026 02 01))
-  (define p1 (post d1 "beep" d1))
+  (define p1 (post d1 "beep" 0))
   (define p2 (post d2 "boop" #f))
   (create-post r p1)
   (create-post r p2)
@@ -116,15 +133,15 @@
 
   (define d3 (day 2026 01 02))
   (create-post r (post d3 "bep" #f))
-  (check-equal? (get-posts r 'asc (in-thread d1)) (list p1))
+  (check-equal? (get-posts r 'asc (in-topic 0)) (list p1))
   
-  (define p3 (post d3 "bep" d1))
+  (define p3 (post d3 "bep" 0))
   (check-exn exn:fail:sql? (λ () (create-post r p3)))
   (check-equal? (get-post r d3) (post d3 "bep" #f))
   (update-post r p3)
   (check-equal? (get-post r d3) p3)
   (define all (list p1 p3 p2))
-  (check-equal? (get-posts r 'asc (in-thread d1)) (list p1 p3))
+  (check-equal? (get-posts r 'asc (in-topic 0)) (list p1 p3))
   (check-equal? (get-posts r 'asc) all)
   (check-equal? (get-posts r 'desc) (reverse all))
   (check-equal? (get-posts r 'asc (after (day 2026 01 01))) (rest all))

@@ -1,9 +1,10 @@
 #lang racket/base
 (require "day.rkt")
 (provide (struct-out post)
+         (struct-out topic)
          (struct-out before)
          (struct-out after)
-         (struct-out in-thread)
+         (struct-out in-topic)
          valid-text?
          valid-text-split)
 
@@ -20,20 +21,29 @@
 (define (valid-text-split str)
   (utf-8-split str 1024))
 
-(struct post (day text thread)
+(struct post (day text topic-id)
   #:transparent
   #:guard
-  (λ (day text thread name)
+  (λ (day text topic-id name)
     (unless
         (and (day? day)
              (valid-text? text)
-             (or (not thread) (day? thread)))
+             (or (not topic-id) (exact-integer? topic-id)))
       (error 'day "not a valid post: (~a ~s ~s)" name day text))
-    (values day text thread)))
+    (values day text topic-id)))
+
+(struct topic (id name)
+  #:transparent
+  #:guard
+  (λ (id name struct-name)
+    (unless
+        (and (exact-integer? id) (string? name))
+      (error 'topic "not a valid topic: (~a ~s ~s)" struct-name id name))
+    (values id name)))
 
 (struct before (day) #:transparent)
 (struct after (day) #:transparent)
-(struct in-thread (day) #:transparent)
+(struct in-topic (day) #:transparent)
 
 (module+ test
   (require rackunit)
