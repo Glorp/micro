@@ -25,10 +25,12 @@
                      "https://dailyotter.org"))
 (define p1 (post (add-days the-day -5) "beep\nboop\nbap" #f "https://dailybunny.org"))
 (define p2 (post (add-days the-day -3) "blep\nblop\nblap" 'important-topic #f))
-(define p3 (post (add-days the-day -1) "mlep\nmlop\nmlap" #f #f))
+(define p3 (post (add-days the-day -2) "mlep\nmlop\nmlap" #f #f))
+(define p4 (post (add-days the-day -1) "BEPP" 'beep #f))
 (create-post r p1)
 (create-post r p2)
 (create-post r p3)
+(create-post r p4)
 (define tag1 (topic 'beep "Beep" 'tag))
 (define tag2 (topic 'boop "Boop" 'tag))
 (create-topic r tag1)
@@ -42,7 +44,6 @@
     (write-html html out)))
 
 (define (ok title body)
-  (printf "~n~n~s~n" body)
   (response/output (out-html (page title body))))
 
 (define (not-found)
@@ -156,12 +157,35 @@
      (match (get-topic r (string->symbol str))
        [#f (not-found)]
        [(topic symbol name type)
-        (define posts (get-posts r 'asc (in-thread symbol)))
-        (define tags (apply tags-hash r (map post-day posts)))
+        (define tagged-posts (get-posts r 'asc (with-tag symbol)))
+        (define thread-posts (get-posts r 'asc (in-thread symbol)))
+        (define tags (apply tags-hash r (map post-day (append thread-posts tagged-posts))))
+        (define tags-html
+          (match tags
+            ['() '()]
+            [_ `((h2 "Posts tagged " ,(symbol->string symbol) ":")
+                 (table
+                  ,@(apply append
+                           (map (λ (p)
+                                  (match p
+                                    [(post dy text _ _)
+                                     (define start (match (regexp-match #px"[^\n]+" text)
+                                                     [#f ""]
+                                                     [(list s) s]))
+                                     (define str (if (> (string-length start) 64)
+                                                     (substring start 0 61)
+                                                     start))
+                                     `((tr (th (a ([href ,(day->url dy)]) ,(day->string dy)))
+                                           (td ,@(parseline str))))]))
+                                tagged-posts))))]))
+        (define thread-html
+          (match thread-posts
+            ['() '()]
+            [_ `((h2 "Thread:") ,@(map (λ (p) (post->section-in-thread p tags)) thread-posts))]))
+        (printf "th: ~s~ntg:~s~n" thread-html tags-html)
         (ok name
             `(body
-              (h1 ,name)
-              ,@(map (λ (p) (post->section-in-thread p tags)) posts)))])]
+              (h1 ,name) ,@thread-html ,@tags-html))])]
     [(#"POST" (list "next-day"))
      (set! the-day (add-days the-day 1))
      (sea-otter "/index.html")]

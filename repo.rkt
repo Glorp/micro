@@ -112,7 +112,9 @@
       (match filter
         [(before d) (list (format "day < $~a" n) (day->string d))]
         [(after d) (list (format "day > $~a" n) (day->string d))]
-        [(in-thread symbol) (list (format "symbol = $~a" n) (symbol->string symbol))])))
+        [(in-thread symbol) (list (format "symbol = $~a" n) (symbol->string symbol))]
+        [(with-tag symbol) (list (format "day IN (SELECT day FROM tagged WHERE symbol = $~a)" n)
+                                 (symbol->string symbol))])))
   (define where
     (if (empty? clauses)
         ""

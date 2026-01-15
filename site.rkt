@@ -39,7 +39,7 @@
         ,@(post-inputs (post-text p) (post-link p)))
       (day->form dy)))
 
-(define (topic-link tp)
+(define (thread-link tp)
   (match tp
     [(topic symbol name _)
      (define id-str (symbol->string symbol))
@@ -47,21 +47,27 @@
 
 (define (thread-tr tp)
   (if tp
-      `((tr (th "In thread:") (td ,(topic-link tp))))
+      `((tr (th "In thread:") (td ,(thread-link tp))))
       '()))
+
+(define (tag-link tp)
+  (match tp
+    [(topic symbol name _)
+     (define id-str (symbol->string symbol))
+     `(a ([href ,(format "/topics/~a" id-str)]) ,(symbol->string symbol))]))
 
 (define (tags-tr tps)
   (match tps
     ['() '()]
     [(list tp rest ...)
      `((tr (th "Tagged:")
-           (td ,(topic-link tp) ,@(apply append (map (λ (t) `(", " ,(topic-link t))) rest)))))]))
+           (td ,(tag-link tp) ,@(apply append (map (λ (t) `(", " ,(tag-link t))) rest)))))]))
 
 (define (html-section day text rows)
   (define str (day->string day))
   `(section
     ([id ,str])
-    (h2 (a ([href ,(day->url day)]) ,str))
+    (h3 (a ([href ,(day->url day)]) ,str))
     ,@(parsedown text)
     ,@(if (empty? rows)
           '()

@@ -2,9 +2,13 @@
 (require racket/match
          racket/string)
 
-(provide parsedown)
+(provide parsedown
+         parseline)
 
-(define (parseline str res)
+(define (parseline str)
+  (reverse (parseline-priv str '())))
+
+(define (parseline-priv str res)
   (define (mode-str? s)
     (or (equal? "_" s) (equal? "`" s)))
   (define (mode-symbol s)
@@ -37,13 +41,13 @@
   (match lst
     ['() res]
     [(list (? blank?) rest ...) (start rest res)]
-    [(list line rest ...) (p rest res (parseline line '()))]))
+    [(list line rest ...) (p rest res (parseline-priv line '()))]))
 
 (define (p lst res par)
   (match lst
     ['() (cons (cons 'p (reverse par)) res)]
     [(list (? blank?) rest ...) (start rest (cons (cons 'p (reverse par)) res))]
-    [(list line rest ...) (p rest res (parseline line (cons '(br)  par)))]))
+    [(list line rest ...) (p rest res (parseline-priv line (cons '(br)  par)))]))
 
 (define (parsedown str)
   (reverse (start (string-split str "\n") '())))
