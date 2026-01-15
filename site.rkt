@@ -6,62 +6,79 @@
          "post.rkt"
          "down.rkt")
 (provide page
+         day->url
          day/post->form
          post->section-no-thread
          post->section-in-thread)
 
-(define (post-inputs text)
+(define (post-inputs text link)
   `((label "Text: " (textarea ([name "text"]) ,text))
-    (label "Optionally a link: " (input ([name "link"])))
+    (label "Optionally a link: " (input ([name "link"] [type "text"] [value ,(or link "")])))
     (input ([type "submit"] [value "Submit"]))))
 
-(define (day-url dy)
+(define (pad n w)
+  (~a n #:min-width w #:align 'right #:pad-string "0"))
+
+(define (day->url dy)
   (match dy
     [(day y m d) (format "/~a/~a-~a" (pad y 4) (pad m 2) (pad d 2))]))
 
 (define (day->form dy)
   `(form
-    ([action ,(~a (day-url dy) "/create")] [method "post"])
+    ([action ,(~a (day->url dy) "/create")] [method "post"])
     "Make new post:"
     (br)
-    ,@(post-inputs "")))
+    ,@(post-inputs "" "")))
 
 (define (day/post->form dy p)
   (if p
       `(form
-        ([action ,(~a (day-url dy) "/edit")] [method "post"])
+        ([action ,(~a (day->url dy) "/update")] [method "post"])
         "Edit existing post:"
         (br)
-        ,@(post-inputs (post-text p)))
+        ,@(post-inputs (post-text p) (post-link p)))
       (day->form dy)))
 
-(define (thread-tr tp)
+(define (topic-link tp)
   (match tp
     [(topic symbol name _)
      (define id-str (symbol->string symbol))
-     `((tr (th "In thread:")
-            (td (a ([href ,(format "/topics/~a" id-str)]) ,name))))]
-    [#f '()]))
+     `(a ([href ,(format "/topics/~a" id-str)]) ,name)]))
+
+(define (thread-tr tp)
+  (if tp
+      `((tr (th "In thread:") (td ,(topic-link tp))))
+      '()))
+
+(define (tags-tr tps)
+  (match tps
+    ['() '()]
+    [(list tp rest ...)
+     `((tr (th "Tagged:")
+           (td ,(topic-link tp) ,@(apply append (map (λ (t) `(", " ,(topic-link t))) rest)))))]))
 
 (define (html-section day text rows)
   (define str (day->string day))
   `(section
     ([id ,str])
-    (h2 (a ([href ,(day->link day)]) ,str))
+    (h2 (a ([href ,(day->url day)]) ,str))
     ,@(parsedown text)
     ,@(if (empty? rows)
           '()
           `((footer (table ,@rows))))))
 
-(define (post->section-in-thread p)
+(define (post->section-in-thread p tags)
   (match p
-    [(post day text _ link) (html-section day text (link-tr link))]))
+    [(post day text _ link)
+     (html-section day text `(,@(tags-tr (hash-ref tags day '())) ,@(link-tr link)))]))
 
-(define (post->section-no-thread p topics)
+(define (post->section-no-thread p topics tags)
   (match p
     [(post day text symbol link)
      (define topic (and symbol (hash-ref (topics-hash topics) symbol)))
-     (html-section day text `(,@(thread-tr topic) ,@(link-tr link)))]))
+     (html-section day
+                   text
+                   `(,@(thread-tr topic) ,@(tags-tr (hash-ref tags day '())) ,@(link-tr link)))]))
 
 (define (page title body)
   `(html
@@ -71,12 +88,6 @@
      (title ,title)
      (link ([href "/style.css"] [rel "stylesheet"])))
     ,body))
-
-(define (pad n w)
-  (~a n #:min-width w #:align 'right #:pad-string "0"))
-(define (day->link dy)
-  (match dy
-    [(day y m d) (format "/~a/~a/~a" (pad y 4) (pad m 2) (pad d 2))]))
 
 (define (link-tr link)
   (if link

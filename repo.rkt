@@ -18,7 +18,8 @@
          get-topic
          all-topics
          tag
-         untag)
+         untag
+         tags-hash)
 
 (struct repo (connection topics) #:mutable)
 
@@ -184,7 +185,7 @@
   (match* (p tp)
     [((post dy _ _ _) (topic sym _ _))
      (query-exec (con rp)
-                 "INSERT INTO tagged (day, symbol) VALUES ($1, $1)"
+                 "INSERT INTO tagged (day, symbol) VALUES ($1, $2)"
                  (day->string dy)
                  (symbol->string sym))]))
 
@@ -196,15 +197,32 @@
                  (day->string dy)
                  (symbol->string sym))]))
 
+(define (tags-hash rp . days)
+  (define in (string-join (map (λ (dy) (format "'~a'" (day->string dy))) days) ", "))
+  (define tphash (topics-hash (all-topics rp)))
+  (define rows (query-rows (con rp)
+                           (~a "SELECT day, tagged.symbol"
+                               "FROM tagged JOIN topic ON tagged.symbol = topic.symbol"
+                               (format "WHERE day IN (~a)" in)
+                               "ORDER BY topic.name DESC"
+                               #:separator "\n")))
+  (for/fold ([h (hash)]) ([row rows])
+    (match row
+      [(vector dystr tag)
+       (define dy (string->day dystr))
+       (define tp (hash-ref tphash (string->symbol tag)))
+       (hash-set h dy (cons tp (hash-ref h dy '())))])))
+
 (module+ test
   (require (except-in rackunit before after))
   (define r (open-repo 'memory))
   
   (create-topic r (topic 'hello "Hello" 'either))
-  (check-exn exn:fail:sql? (λ () (create-topic r (topic 'hello "Hi" 'either))))
+  (define t (topic 'hello "Hi" 'thread))
+  (check-exn exn:fail:sql? (λ () (create-topic r t)))
   (check-equal? (get-topic r 'hello) (topic 'hello "Hello" 'either))
-  (update-topic r (topic 'hello "Hi" 'thread))
-  (check-equal? (get-topic r 'hello) (topic 'hello "Hi" 'thread))
+  (update-topic r t)
+  (check-equal? (get-topic r 'hello) t)
   (define d1 (day 2026 01 01))
   (define d2 (day 2026 02 01))
   (define p1 (post d1 "beep" 'hello #f))
@@ -231,4 +249,10 @@
                            'desc
                            (before (day 2026 01 03))
                            (after (day 2026 01 01)))
-                (list p3)))
+                (list p3))
+  (tag r p1 t)
+  (tag r p2 t)
+  (tag r p3 t)
+  (define tl (list t))
+  (check-equal? (tags-hash r d1 d3) (hash d1 tl d3 tl))
+  (check-equal? (tags-hash r d1 d2 d3) (hash d1 tl d2 tl d3 tl)))
