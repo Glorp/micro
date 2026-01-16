@@ -8,11 +8,13 @@
 
 (define normal-elements
   (seteq 'html 'head 'title 'body 'h1 'h2 'h3 'p 'a 'em 'strong 'div 'pre 'code 'figure 'figcaption
-         'time 'form 'label 'textarea 'section 'header 'footer 'dl 'dt' dd 'table 'tr 'th 'td))
+         'time 'form 'label 'textarea 'section 'header 'footer 'dl 'dt' dd 'table 'tr 'th 'td
+         'datalist 'option))
 (define void-elements
   (seteq 'br 'hr 'img 'input 'link 'meta))
 (define normal-attributes
-  (seteq 'lang 'charset 'rel 'alt 'href 'id 'src 'type 'action 'name 'value 'method 'colspan))
+  (seteq 'lang 'charset 'rel 'alt 'href 'id 'src 'type 'action 'name 'value 'method 'colspan 'list
+         'label))
 (define boolean-attributes
   (seteq 'checked))
 

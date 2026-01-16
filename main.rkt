@@ -84,7 +84,10 @@
 
 (define (store-post dy bindings store)
   (match bindings
-    [`((text . ,crlftext) (link . ,linktext))
+    [`((text . ,crlftext) (symbol . ,symtext) (link . ,linktext))
+     (define symbol (and (non-empty-string? (string-trim symtext))
+                         (string->symbol symtext)))
+     (define tp (and symbol (get-topic r symbol)))
      (define trimmed (string-trim linktext))
      (define link (and (non-empty-string? trimmed) trimmed))
      (define text (lfstring crlftext))
@@ -95,11 +98,13 @@
                    (h1 "text too long >:(")
                    (p "okay: " ,(~s ok))
                    (p "too much: " ,(~s too-much))))]
-           [else (store r (post dy text #f link))
+           [(and symbol (not tp))
+            (bad `(body (h1 "\"" ,symtext "\" does not refer to an existing topic")))]
+           [else (store r (post dy text symbol link))
                  (sea-otter (~a (day->url dy) "/edit"))])]
     [_ (bad `(body
               (h1 "bad parameters")
-              (p (~s bindings) " <- what is ??")
+              (p ,(~s bindings) " <- what is ??")
               (p "want: param text then param link")))]))
 
 (define (day-handler method dy rest bindings)
@@ -112,16 +117,16 @@
            [p (ok (day->string dy) `(body ,(post->section-in-thread p (tags-hash r dy))))]
            [else not-found])]
     [(#"GET" '("edit"))
+     (define topics (all-topics r))
+     (define tags (tags-hash r dy))
      (ok dstr
          `(body
            (h1 ,dstr)
-           ,@(cond [p (define topics (all-topics r))
-                      (define tags (tags-hash r dy))
-                      `((p "Existing post:")
+           ,@(cond [p `((p "Existing post:")
                         ,(post->section p topics tags)
                         ,@(tag-forms dy topics tags))]
                    [else `((p "There's no existing post for " (time ,dstr) "."))])
-              ,(day/post->form dy p)))]
+              ,(day/post->form dy p topics)))]
     [(#"POST" '("create"))
      (if (get-post r dy)
          (bad `(body (h1 "there's already a post for " (time ,dstr))))

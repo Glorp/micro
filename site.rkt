@@ -14,8 +14,16 @@
          post->tr
          tag-forms)
 
-(define (post-inputs text link)
+(define (post-inputs text symbol link topics)
+  (define sym (or (and symbol (symbol->string symbol)) ""))
   `((label "Text: " (textarea ([name "text"]) ,text))
+    (label "Thread: " (input ([name "symbol"] [type "text"] [value ,sym] [list "topics"])))
+    (datalist ([id "topics"])
+              ,@(map (λ (tp)
+                       (match tp
+                         [(topic symbol name _)
+                          `(option ([value ,(symbol->string symbol)] [label ,name]))]))
+                     (topics-threads topics)))
     (label "Optionally a link: " (input ([name "link"] [type "text"] [value ,(or link "")])))
     (input ([type "submit"] [value "Submit"]))))
 
@@ -23,20 +31,21 @@
   (match dy
     [(day y m d) (format "/~a/~a-~a" (4pad y) (2pad m) (2pad d))]))
 
-(define (day->form dy)
+(define (day->form dy topics)
   `(form
     ([action ,(~a (day->url dy) "/create")] [method "post"])
     "Make new post:"
     (br)
-    ,@(post-inputs "" "")))
+    ,@(post-inputs "" #f #f topics)))
 
-(define (day/post->form dy p)
-  (if p
-      `(form
-        ([action ,(~a (day->url dy) "/update")] [method "post"])
-        (p "Edit existing post:")
-        ,@(post-inputs (post-text p) (post-link p)))
-      (day->form dy)))
+(define (day/post->form dy p topics)
+  (match p
+    [#f (day->form dy)]
+    [(post dy t sym link)
+     `(form
+       ([action ,(~a (day->url dy) "/update")] [method "post"])
+       (p "Edit existing post:")
+       ,@(post-inputs t sym link topics))]))
 
 (define (thread-link tp)
   (match tp
