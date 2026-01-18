@@ -149,34 +149,45 @@
     [2 'tag]
     [3 'either]))
 
+(define topics-semaphore (make-semaphore 1))
+
 (define (create-topic rp tp)
-  (set-repo-topics! rp #f)
-  (match tp
-    [(topic symbol name type)
-     (query-exec (con rp)
-                 "INSERT INTO topic (symbol, name, type) VALUES ($1, $2, $3)"
-                 (symbol->string symbol)
-                 name
-                 (type->int type))]))
+  (call-with-semaphore
+   topics-semaphore
+   (λ ()
+     (set-repo-topics! rp #f)
+     (match tp
+       [(topic symbol name type)
+        (query-exec (con rp)
+                    "INSERT INTO topic (symbol, name, type) VALUES ($1, $2, $3)"
+                    (symbol->string symbol)
+                    name
+                    (type->int type))]))))
 
 (define (update-topic rp tp)
-  (set-repo-topics! rp #f)
-  (match tp
-    [(topic symbol name type)
-     (query-exec (con rp)
-                 "UPDATE topic SET name = $1, type = $2 WHERE symbol = $3"
-                 name
-                 (type->int type)
-                 (symbol->string symbol))]))
+  (call-with-semaphore
+   topics-semaphore
+   (λ ()
+     (set-repo-topics! rp #f)
+     (match tp
+       [(topic symbol name type)
+        (query-exec (con rp)
+                    "UPDATE topic SET name = $1, type = $2 WHERE symbol = $3"
+                    name
+                    (type->int type)
+                    (symbol->string symbol))]))))
 
 (define (delete-topic rp tp)
-  (set-repo-topics! rp #f)
-  (match tp
-    [(topic sym _ _)
-     (define symstr (symbol->string sym))
-     (query-exec (con rp) "DELETE FROM tagged WHERE symbol = $1" symstr)
-     (query-exec (con rp) "UPDATE post SET symbol = NULL WHERE symbol = $1" symstr)
-     (query-exec (con rp) "DELETE FROM topic WHERE symbol = $1" symstr)]))
+  (call-with-semaphore
+   topics-semaphore
+   (λ ()
+     (set-repo-topics! rp #f)
+     (match tp
+       [(topic sym _ _)
+        (define symstr (symbol->string sym))
+        (query-exec (con rp) "DELETE FROM tagged WHERE symbol = $1" symstr)
+        (query-exec (con rp) "UPDATE post SET symbol = NULL WHERE symbol = $1" symstr)
+        (query-exec (con rp) "DELETE FROM topic WHERE symbol = $1" symstr)]))))
 
 (define (row->topic row)
   (match row
@@ -184,18 +195,21 @@
 
 (define (all-topics rp)
   (unless (repo-topics rp)
-    (define all (map row->topic
-                     (query-rows (con rp)
-                                 "SELECT symbol, name, type FROM topic ORDER BY name, symbol")))
-    (define ((has-type? type) tp)
-      (match tp
-        [(topic _ _ 'either) #t]
-        [(topic _ _ symbol) (eq? symbol type)]))
-    (set-repo-topics! rp
-                      (topics (make-immutable-hasheq (map (λ (t) (cons (topic-symbol t) t)) all))
-                              all
-                              (filter (has-type? 'thread) all)
-                              (filter (has-type? 'tag) all))))
+    (call-with-semaphore
+     topics-semaphore
+     (λ ()
+       (define all (map row->topic
+                        (query-rows (con rp)
+                                    "SELECT symbol, name, type FROM topic ORDER BY name, symbol")))
+       (define ((has-type? type) tp)
+         (match tp
+           [(topic _ _ 'either) #t]
+           [(topic _ _ symbol) (eq? symbol type)]))
+       (set-repo-topics! rp
+                         (topics (make-immutable-hasheq (map (λ (t) (cons (topic-symbol t) t)) all))
+                                 all
+                                 (filter (has-type? 'thread) all)
+                                 (filter (has-type? 'tag) all))))))
   (repo-topics rp))
 
 (define (get-topic rp id)

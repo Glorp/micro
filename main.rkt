@@ -270,11 +270,4 @@
         (printf "not found: ~a, ~a, ~s~n" method path bindings)
         (not-found user)])]))
 
-(serve/servlet
- servlet
- #:stateless? #t
- #:servlet-regexp #rx""
- #:servlet-path "/login"
- #:extra-files-paths
- (list
-  (build-path (current-directory) "static")))
+(serve/servlet servlet #:stateless? #t #:servlet-regexp #rx"" #:servlet-path "/login")
