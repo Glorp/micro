@@ -16,14 +16,19 @@ textarea { width: 100%; font-size: 1.05rem; min-height: 10rem; }
 time { font-style: italic; }
 del { text-decoration: line-through; background-color: #ffbbbb; color: #555555; }
 ins { text-decoration: none; background-color: #d4fcbc; color: #000000; }
-section { margin-left: 0.5rem; background: #F6F6F6; }
+section { margin-left: 0.5rem; background: #FAE0E4; }
 section:target { outline: 2px solid #D3D3D3; }
 section > * { padding-left: 0.5rem; padding-right: 0.5rem; }
-section  th { padding-left: 0;  }
-header { border-bottom: 2px solid #D3D3D3; }
-footer { background: #D3D3D3; }
+section  th { padding-left: 0; }
+nav { padding-bottom: 0.5rem; }
+nav a { text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+nav ol {  list-style-type: none; padding: 0; margin: 0; display: inline-block; }
+nav li { display: inline-block; padding-right: 1rem; }
+header { border-bottom: 2px solid #F7CAD0; }
+footer { background: #F7CAD0; }
 dd { margin-inline-start: 1rem; }
-thead { background: #D3D3D3; }
+thead { background: #F7CAD0; }
 th, td { font-weight: normal; text-align: left; padding-left: 0.5rem; padding-right: 0.5rem; }
 time { font-style: normal; }
 

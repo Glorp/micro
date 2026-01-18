@@ -189,23 +189,23 @@
                                [value ,(symbol->string tag)])))
                     removes)))]))
 
-(define nav '(nav (a ([href "/index.html"]) "Index")
-                  ", " (a ([href "/topics.html"]) "Topics")))
-
 (define (header user)
-  `(header ,nav
-           ,@(if user
-                 `((p "You are logged in. Hi, " ,user " :)"))
-                 '())))
+  `(header (nav (ol (li (a ([href "/index.html"]) "Index"))
+                      " "
+                      (li (a ([href "/topics.html"]) "Topics"))))))
 
 (define (page user title content)
+  (define loggedin
+    (if user
+        `((p "You are logged in. Hi, " ,user " :)"))
+        '()))
   `(html
     ([lang "en"])
     (head
      (meta ([charset "utf-8"]))
      (title ,title)
      (link ([href "/style.css"] [rel "stylesheet"])))
-    (body ,(header user) ,@content)))
+    (body ,(header user) ,@loggedin ,@content)))
 
 (define (link-tr link)
   (if link
