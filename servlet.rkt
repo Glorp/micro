@@ -180,14 +180,26 @@
          [(#"GET" (list "archive.html"))
           (define title "Archive")
           (displayln (get-posts r 'asc #:limit 1))
-          (match (get-posts r 'asc #:limit 1)
-            ['() (ok user title `((h1 ,title) (p "There are no posts.")))]
-            [(list (post (day y m _) _ _ _))
+          (match* (the-day (get-posts r 'asc #:limit 1))
+            [(_ '()) (ok user title `((h1 ,title) (p "There are no posts.")))]
+            [((day to-y to-m _) (list (post (day from-y from-m _) _ _ _)))
+             (define res
+               (apply
+                append
+                (for/list ([y (in-range from-y (+ to-y 1))])
+                  (define months
+                    (for/list ([m (in-range 1 13)]
+                               #:unless (or (and (= y from-y) (< m from-m))
+                                            (and (= y to-y) (> m to-m))))
+                      `(", "
+                        (a ([href ,(format "/~a/~a.html" (4pad y) (2pad m))])
+                           ,(format "~a" (2pad m))))))
+                  `((h2 ,(4pad y)) ,@(cdr (apply append months))))))
+                 
              (ok user
                  title
                  `((h1 ,title)
-                   (p (a ([href ,(format "/~a/~a.html" (4pad y) (2pad m))])
-                         ,(format "~a-~a" (4pad y) (2pad m))))))])]
+                   ,@res))])]
          [(#"GET" (list (regexp yr (list _ y)) (regexp mr-dot-html (list _ m))))
           (define dy (maybe-day (string->number y) (string->number m) 1))
           (match dy
