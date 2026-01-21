@@ -10,6 +10,7 @@
          day->url
          symbol->url
          topic->url
+         topic-content
          new-topic-form
          topic->forms
          day/post->forms
@@ -67,10 +68,10 @@
     [(topic sym name type)
      `((p "Edit topic:")
        (form ([method "post"] [action ,(symbol->url sym "/update")])
-            ,@(topic-inputs name type))
+             ,@(topic-inputs name type))
        (p "Delete topic:")
        (form ([method "post"] [action ,(symbol->url sym "/delete")])
-         (input ([type "submit"] [name "submit"] [value "Delete"]))))]))
+             (input ([type "submit"] [name "submit"] [value "Delete"]))))]))
 
 (define (symbol->url sym . rest)
   (format "/topic/~a~a" (symbol->string sym) (apply ~a rest)))
@@ -125,44 +126,40 @@
      `((tr (th "Tagged:")
            (td ,(tag-link tp) ,@(apply append (map (λ (t) `(", " ,(tag-link t))) rest)))))]))
 
-(define (html-section id h text rows)
-  `(section
-    ([id ,id])
-    ,h
-    ,@(parsedown text)
-    ,@(if (empty? rows)
-          '()
-          `((footer (table ,@rows))))))
-
 (define (edit-post-tr user dy)
   (if user
       `((tr (th ([colspan "2"]) (a ([href ,(day->url dy "/edit")]) "Edit post"))))
       '()))
 
-(define (post->section-in-thread user p tags)
+(define (html-section user h p tags)
   (match p
     [(post dy text _ link)
-     (html-section (day->string dy)
-                   `(h3 (time ,(day->string dy)))
-                   text
-                   `(,@(link-tr link)
-                     ,@(tags-tr (hash-ref tags dy '()))
-                     ,@(edit-post-tr user dy)))]))
+     (define rows `(,@(link-tr link)
+                    ,@(tags-tr (hash-ref tags dy '()))
+                    ,@(edit-post-tr user dy)))
+     `(section
+       ([id ,(day->string dy)])
+       ,h
+       ,@(parsedown text)
+       ,@(if (empty? rows)
+             '()
+             `((footer (table ,@rows)))))]))
+
+  
+
+(define (post->section-in-thread user p tags)
+  (html-section user `(h3 (time ,(day->string (post-day p)))) p tags))
 
 (define (post->section user p topics tags)
   (match p
-    [(post dy text symbol link)
-     (define topic (and symbol (hash-ref (topics-hash topics) symbol)))
-     (html-section (day->string dy)
-                   `(h3 (a ([href ,(day->url dy ".html")])
-                           (time ,(day->string dy))
-                           ,@(if topic
-                                 `(" (" ,(topic-name topic) , ")")
-                                 '())))
-                   text
-                   `(,@(link-tr link)
-                     ,@(tags-tr (hash-ref tags dy '()))
-                     ,@(edit-post-tr user dy)))]))
+    [(post dy _ sym _)
+     (define topic (and sym (hash-ref (topics-hash topics) sym)))
+     (define h `(h3 (a ([href ,(day->url dy ".html")])
+                       (time ,(day->string dy))
+                       ,@(if topic
+                             `(" (" ,(topic-name topic) , ")")
+                             '()))))
+     (html-section user h p tags)]))
 
 (define (tag-forms dy topics tags)
   (define tagset (apply set (map topic-symbol (hash-ref tags dy '()))))
@@ -226,3 +223,23 @@
      `(tr (td (a ([href ,(symbol->url sym ".html")]) ,name))
           (td ,(symbol->string sym))
           (td ,(symbol->string type)))]))
+
+(define (topic-content user tp thread-posts tagged-posts tags)
+  (match tp
+    [(topic sym name type)
+     (define tags-html
+       (match tagged-posts
+         ['() '()]
+         [_ `((h2 "Posts with the \"" ,(symbol->string sym) "\"-tag:")
+              (table ,@(apply append (map post->tr tagged-posts))))]))
+     (match-define (list thread-first thread-rest)
+       (match thread-posts
+         ['() '(() ())]
+         [(list first rest ...)
+          `((,(post->section-in-thread user first tags))
+            (,@(map (λ (p) (post->section-in-thread user p tags)) rest)))]))
+     (define edit
+       (if user
+           (topic->forms tp)
+           '()))
+     `((h1 ,name) ,@edit ,@thread-first ,@tags-html ,@thread-rest)]))

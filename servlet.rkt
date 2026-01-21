@@ -179,7 +179,6 @@
               (not-found user))]
          [(#"GET" (list "archive.html"))
           (define title "Archive")
-          (displayln (get-posts r 'asc #:limit 1))
           (match* (the-day (get-posts r 'asc #:limit 1))
             [(_ '()) (ok user title `((h1 ,title) (p "There are no posts.")))]
             [((day to-y to-m _) (list (post (day from-y from-m _) _ _ _)))
@@ -232,22 +231,7 @@
              (define tagged-posts (get-posts r 'asc (with-tag symbol)))
              (define thread-posts (get-posts r 'asc (in-thread symbol)))
              (define tags (apply tags-hash r (map post-day (append thread-posts tagged-posts))))
-             (define tags-html
-               (match tagged-posts
-                 ['() '()]
-                 [_ `((h2 "Posts with the \"" ,(symbol->string symbol) "\"-tag:")
-                      (table ,@(apply append (map post->tr tagged-posts))))]))
-             (match-define (list thread-first thread-rest)
-               (match thread-posts
-                 ['() '(() ())]
-                 [(list first rest ...)
-                  `((,(post->section-in-thread user first tags))
-                    (,@(map (λ (p) (post->section-in-thread user p tags)) rest)))]))
-             (define edit
-               (if user
-                   (topic->forms tp)
-                   '()))
-             (ok user name `((h1 ,name) ,@edit ,@thread-first ,@tags-html ,@thread-rest))])]
+             (ok user name (topic-content user tp thread-posts tagged-posts tags))])]
          [(#"POST" (list "topic" str "update"))
           (define sym (string->symbol str))
           (define tp (get-topic r sym))
