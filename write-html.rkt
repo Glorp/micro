@@ -1,9 +1,23 @@
 #lang racket/base
-(require (only-in racket/match match)
+(require (only-in racket/match match match*)
          (only-in racket/format ~a)
+         (only-in racket/string string-join)
          (only-in racket/set seteq set-member?))
 
 (provide write-html html->string doctype)
+
+
+(define (relative from to)
+  (define (dotdot l) (string-join (map (λ (_) "..") l) "/"))
+  (define (path l) (string-join l "/"))
+  (match* (from to)
+    [('() _) (error 'relative "bad: empty from")]
+    [(_ '()) (error 'relative "bad: empty to")]
+    [((list a) (list _ _ ...)) (~a "./" (path to))]
+    [((list a as ...) (list b)) (~a (dotdot as) "/" b)]
+    [((list a as ...) (list b bs ...)) (if (equal? a b)
+                                           (relative as bs)
+                                           (~a (dotdot as) "/" (path to)))]))
 
 (define normal-elements
   (seteq 'html 'head 'title 'body 'h1 'h2 'h3 'p 'a 'em 'strong 'div 'pre 'code 'figure 'figcaption

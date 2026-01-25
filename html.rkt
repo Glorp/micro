@@ -7,6 +7,7 @@
          "down.rkt")
 (provide page
          day->url
+         post->url
          symbol->url
          topic->url
          topic-content
@@ -40,6 +41,10 @@
   (match dy
     [(day y m d) (format "/~a/~a-~a~a" (4pad y) (2pad m) (2pad d) rest)]))
 
+(define (post->url p)
+  (match p
+    [(post dy _ #f _) (day->url dy ".html")]
+    [(post dy _ sym _) (symbol->url sym ".html#" (day->string dy))]))
 
 (define (topic-inputs name type)
   (define (selected sym)
@@ -151,7 +156,7 @@
   (match p
     [(post dy _ sym _)
      (define topic (and sym (hash-ref (topics-hash topics) sym)))
-     (define h `(h3 (a ([href ,(day->url dy ".html")])
+     (define h `(h3 (a ([href ,(post->url p)])
                        (time ,(day->string dy))
                        ,@(if topic
                              `(" (" ,(topic-name topic) , ")")
