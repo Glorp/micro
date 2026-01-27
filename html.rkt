@@ -2,8 +2,7 @@
 (require (only-in racket/match match match-define)
          (only-in racket/set set set-member?)
          (only-in racket/format ~a)
-         "day.rkt"
-         "post.rkt"
+         "domain.rkt"
          "down.rkt")
 (provide page
          day->url

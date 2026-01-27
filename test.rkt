@@ -3,8 +3,7 @@
          (only-in racket/format ~a)
          "servlet.rkt"
          "repo.rkt"
-         "day.rkt"
-         "post.rkt")
+         "domain.rkt")
 
 (define the-day (today))
 (define r (open-repo 'memory))

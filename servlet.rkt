@@ -16,8 +16,7 @@
                   make-basic-auth-header
                   request->basic-credentials
                   TEXT/HTML-MIME-TYPE)
-         "day.rkt"
-         "post.rkt"
+         "domain.rkt"
          "repo.rkt"
          "pages.rkt"
          "write-html.rkt"

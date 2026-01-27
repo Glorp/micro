@@ -1,8 +1,7 @@
 #lang racket/base
 (require (only-in racket/match match match*)
          (only-in racket/format ~a)
-         "day.rkt"
-         "post.rkt"
+         "domain.rkt"
          "repo.rkt"
          "html.rkt")
 (provide index
